@@ -2,13 +2,19 @@ import "./style.css";
 
 //document.body.innerHTML = ``;
 
+interface Point {
+  x: number;
+  y: number;
+}
+
 const canvas = document.createElement("canvas");
 const ctx = canvas.getContext("2d")!;
-const lines: { x: number; y: number }[][] = [];
+const lines: Point[][] = [];
 const bus = new EventTarget();
 const cursor = { active: false, x: 0, y: 0 };
+const lineStack = createStack<Point>();
 
-let currentLine: { x: number; y: number }[] = [];
+let currentLine: Point[] = [];
 
 document.body.appendChild(createDocuElement("h1", "Sketch On Me"));
 
@@ -18,8 +24,16 @@ canvas.id = "sketchCanvas";
 document.body.appendChild(canvas);
 
 const clearButton = createDocuElement("button", "Clear Drawing");
-clearButton.classList.add("clear-button");
+clearButton.classList.add("button");
 document.body.appendChild(clearButton);
+
+const undoButton = createDocuElement("button", "Undo");
+undoButton.classList.add("button");
+document.body.appendChild(undoButton);
+
+const redoButton = createDocuElement("button", "Redo");
+redoButton.classList.add("button");
+document.body.appendChild(redoButton);
 
 bus.addEventListener("drawing-changed", redraw);
 
@@ -27,6 +41,7 @@ canvas.addEventListener("mousedown", (e) => {
   cursor.active = true;
   cursor.x = e.offsetX;
   cursor.y = e.offsetY;
+  lineStack.clear();
   lines.push(currentLine);
   currentLine.push({ x: cursor.x, y: cursor.y });
 });
@@ -48,7 +63,22 @@ canvas.addEventListener("mouseup", () => {
 
 clearButton.addEventListener("click", () => {
   lines.splice(0, lines.length);
+  lineStack.clear();
   notify("drawing-changed");
+});
+
+undoButton.addEventListener("click", () => {
+  if (lines.length > 0) {
+    lineStack.push(lines.pop()!);
+    notify("drawing-changed");
+  }
+});
+
+redoButton.addEventListener("click", () => {
+  if (!lineStack.isEmpty()) {
+    lines.push(lineStack.pop()!);
+    notify("drawing-changed");
+  }
 });
 
 function createDocuElement(tag: string, content: string) {
@@ -75,4 +105,21 @@ function redraw() {
       ctx.stroke();
     }
   }
+}
+
+function createStack<Point>() {
+  const redoLines: Point[][] = [];
+
+  return {
+    push: (line: Point[]) => {
+      redoLines.push(line);
+    },
+    pop: () => redoLines.pop(),
+    peek: () => redoLines[redoLines.length - 1],
+    isEmpty: () => redoLines.length === 0,
+    size: () => redoLines.length,
+    clear: () => {
+      redoLines.length = 0;
+    },
+  };
 }
