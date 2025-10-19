@@ -15,6 +15,7 @@ const bus = new EventTarget();
 const lineStack = createStack<DrawingCommand>();
 
 let currentLine: DrawingCommand | null = null;
+let lineWidth = 3;
 
 document.body.appendChild(createDocuElement("h1", "Sketch On Me"));
 
@@ -35,11 +36,19 @@ const redoButton = createDocuElement("button", "Redo");
 redoButton.classList.add("button");
 document.body.appendChild(redoButton);
 
+const thinButton = createDocuElement("button", "Thin");
+thinButton.classList.add("line-width-button");
+document.body.appendChild(thinButton);
+
+const thickButton = createDocuElement("button", "Thick");
+thickButton.classList.add("line-width-button");
+document.body.appendChild(thickButton);
+
 bus.addEventListener("drawing-changed", () => redraw(ctx));
 
 canvas.addEventListener("mousedown", (e) => {
   lineStack.clear();
-  currentLine = createLineCommand([{ x: e.offsetX, y: e.offsetY }]);
+  currentLine = createLineCommand([{ x: e.offsetX, y: e.offsetY }], lineWidth);
   lines.push(currentLine);
 });
 
@@ -75,12 +84,24 @@ redoButton.addEventListener("click", () => {
   }
 });
 
-function createLineCommand(points: { x: number; y: number }[]): DrawingCommand {
+thinButton.addEventListener("click", () => {
+  lineWidth = 1;
+});
+
+thickButton.addEventListener("click", () => {
+  lineWidth = 6;
+});
+
+function createLineCommand(
+  points: { x: number; y: number }[],
+  width: number,
+): DrawingCommand {
   return {
     points,
     display(ctx) {
       ctx.save();
       ctx.strokeStyle = "black";
+      ctx.lineWidth = width;
       ctx.beginPath();
       const { x, y } = points[0];
       ctx.moveTo(x, y);

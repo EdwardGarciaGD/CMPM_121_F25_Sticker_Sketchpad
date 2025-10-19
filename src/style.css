@@ -21,3 +21,20 @@ canvas {
 .button:active {
   transform: translateX(4px);
 }
+
+.line-width-button {
+  font-weight: 500;
+  margin: 16px 8px;
+  padding: 6px 10px;
+  border-radius: 18px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.line-width-button:hover {
+  box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
+}
+
+.line-width-button:active {
+  transform: translateX(4px);
+}
