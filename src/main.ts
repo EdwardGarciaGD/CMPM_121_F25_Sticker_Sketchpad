@@ -2,19 +2,19 @@ import "./style.css";
 
 //document.body.innerHTML = ``;
 
-interface Point {
-  x: number;
-  y: number;
+interface DrawingCommand {
+  points: { x: number; y: number }[];
+
+  display(ctx: CanvasRenderingContext2D): void;
 }
 
 const canvas = document.createElement("canvas");
 const ctx = canvas.getContext("2d")!;
-const lines: Point[][] = [];
+const lines: DrawingCommand[] = [];
 const bus = new EventTarget();
-const cursor = { active: false, x: 0, y: 0 };
-const lineStack = createStack<Point>();
+const lineStack = createStack<DrawingCommand>();
 
-let currentLine: Point[] = [];
+let currentLine: DrawingCommand | null = null;
 
 document.body.appendChild(createDocuElement("h1", "Sketch On Me"));
 
@@ -35,29 +35,23 @@ const redoButton = createDocuElement("button", "Redo");
 redoButton.classList.add("button");
 document.body.appendChild(redoButton);
 
-bus.addEventListener("drawing-changed", redraw);
+bus.addEventListener("drawing-changed", () => redraw(ctx));
 
 canvas.addEventListener("mousedown", (e) => {
-  cursor.active = true;
-  cursor.x = e.offsetX;
-  cursor.y = e.offsetY;
   lineStack.clear();
+  currentLine = createLineCommand([{ x: e.offsetX, y: e.offsetY }]);
   lines.push(currentLine);
-  currentLine.push({ x: cursor.x, y: cursor.y });
 });
 
 canvas.addEventListener("mousemove", (e) => {
-  if (cursor.active) {
-    cursor.x = e.offsetX;
-    cursor.y = e.offsetY;
-    currentLine.push({ x: cursor.x, y: cursor.y });
+  if (e.buttons == 1 && currentLine) {
+    currentLine.points.push({ x: e.offsetX, y: e.offsetY });
     notify("drawing-changed");
   }
 });
 
 canvas.addEventListener("mouseup", () => {
-  cursor.active = false;
-  currentLine = [];
+  currentLine = null;
   notify("drawing-changed");
 });
 
@@ -81,6 +75,24 @@ redoButton.addEventListener("click", () => {
   }
 });
 
+function createLineCommand(points: { x: number; y: number }[]): DrawingCommand {
+  return {
+    points,
+    display(ctx) {
+      ctx.save();
+      ctx.strokeStyle = "black";
+      ctx.beginPath();
+      const { x, y } = points[0];
+      ctx.moveTo(x, y);
+      for (const { x, y } of points) {
+        ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      ctx.restore();
+    },
+  };
+}
+
 function createDocuElement(tag: string, content: string) {
   const element = document.createElement(tag);
   element.textContent = content;
@@ -91,28 +103,17 @@ function notify(name: string) {
   bus.dispatchEvent(new Event(name));
 }
 
-function redraw() {
+function redraw(ctx: CanvasRenderingContext2D) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  for (const line of lines) {
-    if (line.length > 1) {
-      ctx.beginPath();
-      const { x, y } = line[0];
-      ctx.moveTo(x, y);
-      for (const { x, y } of line) {
-        ctx.lineTo(x, y);
-      }
-      ctx.stroke();
-    }
-  }
+  lines.forEach((cmd) => cmd.display(ctx));
 }
 
-function createStack<Point>() {
-  const redoLines: Point[][] = [];
+function createStack<drawingCommand>() {
+  const redoLines: drawingCommand[] = [];
 
   return {
-    push: (line: Point[]) => {
-      redoLines.push(line);
+    push: (command: drawingCommand) => {
+      redoLines.push(command);
     },
     pop: () => redoLines.pop(),
     peek: () => redoLines[redoLines.length - 1],
