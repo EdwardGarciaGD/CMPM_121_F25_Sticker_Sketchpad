@@ -1,7 +1,5 @@
 import "./style.css";
 
-//document.body.innerHTML = ``;
-
 interface DrawingCommand {
   points: { x: number; y: number }[];
 
@@ -11,13 +9,18 @@ interface DrawingCommand {
 const canvas = document.createElement("canvas");
 const ctx = canvas.getContext("2d")!;
 const lines: DrawingCommand[] = [];
+const stickers: DrawingCommand[] = [];
 const bus = new EventTarget();
 const lineStack = createStack<DrawingCommand>();
 
 let currentLine: DrawingCommand | null = null;
 let lineWidth: number = 3;
-let cursorSize: number;
+let stickerEmoji: string = ".";
+let draggingSticker: DrawingCommand | null = null;
 let cursorCommand: DrawingCommand | null = null;
+let stickerCommand: DrawingCommand | null = null;
+let draggedSticker: DrawingCommand | null = null;
+let isSticker: boolean = false;
 
 document.body.appendChild(createDocuElement("h1", "Sketch On Me"));
 
@@ -45,19 +48,57 @@ document.body.appendChild(normalButton);
 const thickButton = createDocuElement("button", "Thick", "line-width-button");
 document.body.appendChild(thickButton);
 
+const divider = document.createElement("div");
+document.body.appendChild(divider);
+
+const stickerControllerButton = createDocuElement(
+  "button",
+  "🎮",
+  "line-width-button",
+);
+document.body.appendChild(stickerControllerButton);
+
+const stickerAppleButton = createDocuElement(
+  "button",
+  "🍎",
+  "line-width-button",
+);
+document.body.appendChild(stickerAppleButton);
+
+const stickerPineappleButton = createDocuElement(
+  "button",
+  "🍍",
+  "line-width-button",
+);
+document.body.appendChild(stickerPineappleButton);
+
 bus.addEventListener("drawing-changed", () => redraw(ctx));
 bus.addEventListener("cursor-changed", () => redraw(ctx));
 
 canvas.addEventListener("mousedown", (e) => {
   lineStack.clear();
-  currentLine = createLineCommand([{ x: e.offsetX, y: e.offsetY }], lineWidth);
-  lines.push(currentLine);
+  if (isSticker) {
+    if (!draggingSticker) {
+      stickerCommand = createStickerCommand(
+        { x: e.offsetX, y: e.offsetY },
+        stickerEmoji,
+      );
+      stickers.push(stickerCommand);
+    }
+  } else {
+    currentLine = createLineCommand(
+      [{ x: e.offsetX, y: e.offsetY }],
+      lineWidth,
+    );
+    lines.push(currentLine);
+  }
+  notify("drawing-changed");
 });
 
 canvas.addEventListener("mousemove", (e) => {
   cursorCommand = createCursorCommand(
     { x: e.offsetX, y: e.offsetY },
-    cursorSize,
+    stickerEmoji,
   );
   notify("cursor-changed");
 
@@ -65,10 +106,25 @@ canvas.addEventListener("mousemove", (e) => {
     currentLine.points.push({ x: e.offsetX, y: e.offsetY });
     notify("drawing-changed");
   }
+
+  if (isSticker && !draggedSticker) {
+    draggingSticker = mouseOnSticker(e.offsetX, e.offsetY);
+  }
+  if (draggingSticker && e.buttons == 1) {
+    draggedSticker = moveStickerCommand(
+      draggingSticker.points[0],
+      e.offsetX,
+      e.offsetY,
+    );
+    notify("drawing-changed");
+  }
 });
 
 canvas.addEventListener("mouseup", () => {
   currentLine = null;
+  stickerCommand = null;
+  draggedSticker = null;
+  draggingSticker = null;
   notify("drawing-changed");
 });
 
@@ -94,27 +150,46 @@ redoButton.addEventListener("click", () => {
 
 thinButton.addEventListener("click", () => {
   lineWidth = 1;
-  cursorSize = 30;
+  stickerEmoji = ".";
+  isSticker = false;
 });
 
 normalButton.addEventListener("click", () => {
   lineWidth = 3;
-  cursorSize = 40;
+  stickerEmoji = "o";
+  isSticker = false;
 });
 
 thickButton.addEventListener("click", () => {
   lineWidth = 6;
-  cursorSize = 60;
+  stickerEmoji = "O";
+  isSticker = false;
 });
 
 canvas.addEventListener("mouseout", () => {
   cursorCommand = null;
+  draggedSticker = null;
   notify("cursor-changed");
 });
 
 canvas.addEventListener("mouseenter", (e) => {
   cursorCommand = createCursorCommand({ x: e.offsetX, y: e.offsetY });
   notify("cursor-changed");
+});
+
+stickerControllerButton.addEventListener("click", () => {
+  stickerEmoji = "🎮";
+  isSticker = true;
+});
+
+stickerAppleButton.addEventListener("click", () => {
+  stickerEmoji = "🍎";
+  isSticker = true;
+});
+
+stickerPineappleButton.addEventListener("click", () => {
+  stickerEmoji = "🍍";
+  isSticker = true;
 });
 
 function createDocuElement(
@@ -137,6 +212,15 @@ function notify(name: string) {
 function redraw(ctx: CanvasRenderingContext2D) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   lines.forEach((cmd) => cmd.display(ctx));
+  stickers.forEach((cmd) => cmd.display(ctx));
+
+  if (stickerCommand) {
+    stickerCommand.display(ctx);
+  }
+
+  if (draggedSticker) {
+    draggedSticker.display(ctx);
+  }
 
   if (cursorCommand) {
     cursorCommand.display(ctx);
@@ -184,17 +268,54 @@ function createLineCommand(
 
 function createCursorCommand(
   points: { x: number; y: number },
-  cursorSize: number = 40,
+  cursorStyle: string = ".",
 ): DrawingCommand {
   return {
     points: [points],
     display(ctx) {
-      ctx.font = cursorSize + "px monospace";
-      if (cursorSize >= 60) {
-        ctx.fillText(".", points.x - 16, points.y + 2);
-      } else {
-        ctx.fillText(".", points.x - 10, points.y + 2);
-      }
+      ctx.font = "40px monospace";
+      ctx.fillText(cursorStyle, points.x - 16, points.y + 2);
     },
   };
+}
+
+function createStickerCommand(
+  sticker: { x: number; y: number },
+  cursorStyle: string,
+): DrawingCommand {
+  return {
+    points: [sticker],
+    display(ctx) {
+      ctx.save();
+      ctx.fillText(cursorStyle, sticker.x - 11, sticker.y + 2);
+      ctx.lineWidth = 40;
+      ctx.restore();
+    },
+  };
+}
+
+function moveStickerCommand(
+  sticker: { x: number; y: number },
+  toX: number,
+  toY: number,
+): DrawingCommand {
+  return {
+    points: [sticker],
+    display() {
+      sticker.x = toX;
+      sticker.y = toY;
+    },
+  };
+}
+
+function mouseOnSticker(mouseX: number, mouseY: number) {
+  for (const sticker of stickers) {
+    const dx = mouseX - sticker.points[0].x;
+    const dy = mouseY - sticker.points[0].y;
+    const d = Math.hypot(dx, dy);
+    if (d < 20) {
+      return sticker;
+    }
+  }
+  return null;
 }
