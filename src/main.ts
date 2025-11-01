@@ -10,6 +10,7 @@ interface DrawingCommand {
 const canvas = document.createElement("canvas");
 const ctx = canvas.getContext("2d")!;
 const drawings: DrawingCommand[] = [];
+const emojis: string[] = ["Create Sticker", "🎮", "🍎", "🍍"];
 const bus = new EventTarget();
 const undoDrawingStack = createStack<DrawingCommand>();
 
@@ -53,24 +54,31 @@ document.body.appendChild(divider);
 
 const stickerControllerButton = createDocuElement(
   "button",
-  "🎮",
+  emojis[1],
   "line-width-button",
 );
 document.body.appendChild(stickerControllerButton);
 
 const stickerAppleButton = createDocuElement(
   "button",
-  "🍎",
+  emojis[2],
   "line-width-button",
 );
 document.body.appendChild(stickerAppleButton);
 
 const stickerPineappleButton = createDocuElement(
   "button",
-  "🍍",
+  emojis[3],
   "line-width-button",
 );
 document.body.appendChild(stickerPineappleButton);
+
+const createStickerButton = createDocuElement(
+  "button",
+  emojis[0],
+  "button",
+);
+document.body.appendChild(createStickerButton);
 
 bus.addEventListener("drawing-changed", () => redraw(ctx));
 bus.addEventListener("cursor-changed", () => redraw(ctx));
@@ -148,21 +156,15 @@ redoButton.addEventListener("click", () => {
 });
 
 thinButton.addEventListener("click", () => {
-  lineWidth = 1;
-  cursorDisplay = ".";
-  isStickerCursor = false;
+  updateCursor(".", false, 1);
 });
 
 normalButton.addEventListener("click", () => {
-  lineWidth = 3;
-  cursorDisplay = "o";
-  isStickerCursor = false;
+  updateCursor("o", false, 3);
 });
 
 thickButton.addEventListener("click", () => {
-  lineWidth = 6;
-  cursorDisplay = "O";
-  isStickerCursor = false;
+  updateCursor("O", false, 6);
 });
 
 canvas.addEventListener("mouseout", () => {
@@ -177,18 +179,19 @@ canvas.addEventListener("mouseenter", (e) => {
 });
 
 stickerControllerButton.addEventListener("click", () => {
-  cursorDisplay = "🎮";
-  isStickerCursor = true;
+  updateCursor(emojis[1], true);
 });
 
 stickerAppleButton.addEventListener("click", () => {
-  cursorDisplay = "🍎";
-  isStickerCursor = true;
+  updateCursor(emojis[2], true);
 });
 
 stickerPineappleButton.addEventListener("click", () => {
-  cursorDisplay = "🍍";
-  isStickerCursor = true;
+  updateCursor(emojis[3], true);
+});
+
+createStickerButton.addEventListener("click", () => {
+  setUpCustomEmoji();
 });
 
 function createDocuElement(
@@ -320,4 +323,28 @@ function mouseOnSticker(mouseX: number, mouseY: number) {
     }
   }
   return null;
+}
+
+function setUpCustomEmoji() {
+  const userInput = prompt("Enter Custom Sticker");
+
+  if (userInput) {
+    emojis.push(userInput);
+    const customStickerButton = createDocuElement(
+      "button",
+      userInput,
+      "line-width-button",
+    );
+    document.body.insertBefore(customStickerButton, createStickerButton);
+
+    customStickerButton.addEventListener("click", () => {
+      updateCursor(userInput, true);
+    });
+  }
+}
+
+function updateCursor(cursor: string, sticker: boolean, width: number = 2) {
+  if (!sticker) lineWidth = width;
+  cursorDisplay = cursor;
+  isStickerCursor = sticker;
 }
