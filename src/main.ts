@@ -2,25 +2,25 @@ import "./style.css";
 
 interface DrawingCommand {
   points: { x: number; y: number }[];
+  isSticker: boolean;
 
   display(ctx: CanvasRenderingContext2D): void;
 }
 
 const canvas = document.createElement("canvas");
 const ctx = canvas.getContext("2d")!;
-const lines: DrawingCommand[] = [];
-const stickers: DrawingCommand[] = [];
+const drawings: DrawingCommand[] = [];
 const bus = new EventTarget();
-const lineStack = createStack<DrawingCommand>();
+const undoDrawingStack = createStack<DrawingCommand>();
 
-let currentLine: DrawingCommand | null = null;
+let drawingCommand: DrawingCommand | null = null;
 let lineWidth: number = 3;
-let stickerEmoji: string = ".";
+let cursorDisplay: string = "o";
+let stickerEmoji: string;
 let draggingSticker: DrawingCommand | null = null;
 let cursorCommand: DrawingCommand | null = null;
-let stickerCommand: DrawingCommand | null = null;
 let draggedSticker: DrawingCommand | null = null;
-let isSticker: boolean = false;
+let isStickerCursor: boolean = false;
 
 document.body.appendChild(createDocuElement("h1", "Sketch On Me"));
 
@@ -76,38 +76,38 @@ bus.addEventListener("drawing-changed", () => redraw(ctx));
 bus.addEventListener("cursor-changed", () => redraw(ctx));
 
 canvas.addEventListener("mousedown", (e) => {
-  lineStack.clear();
-  if (isSticker) {
+  undoDrawingStack.clear();
+  if (isStickerCursor) {
     if (!draggingSticker) {
-      stickerCommand = createStickerCommand(
+      stickerEmoji = cursorDisplay;
+      drawingCommand = createStickerCommand(
         { x: e.offsetX, y: e.offsetY },
         stickerEmoji,
       );
-      stickers.push(stickerCommand);
     }
   } else {
-    currentLine = createLineCommand(
+    drawingCommand = createLineCommand(
       [{ x: e.offsetX, y: e.offsetY }],
       lineWidth,
     );
-    lines.push(currentLine);
   }
+  if (drawingCommand) drawings.push(drawingCommand);
   notify("drawing-changed");
 });
 
 canvas.addEventListener("mousemove", (e) => {
   cursorCommand = createCursorCommand(
     { x: e.offsetX, y: e.offsetY },
-    stickerEmoji,
+    cursorDisplay,
   );
   notify("cursor-changed");
 
-  if (e.buttons == 1 && currentLine) {
-    currentLine.points.push({ x: e.offsetX, y: e.offsetY });
+  if (e.buttons == 1 && drawingCommand) {
+    drawingCommand.points.push({ x: e.offsetX, y: e.offsetY });
     notify("drawing-changed");
   }
 
-  if (isSticker && !draggedSticker) {
+  if (isStickerCursor && !draggedSticker) {
     draggingSticker = mouseOnSticker(e.offsetX, e.offsetY);
   }
   if (draggingSticker && e.buttons == 1) {
@@ -121,49 +121,48 @@ canvas.addEventListener("mousemove", (e) => {
 });
 
 canvas.addEventListener("mouseup", () => {
-  currentLine = null;
-  stickerCommand = null;
+  drawingCommand = null;
   draggedSticker = null;
   draggingSticker = null;
   notify("drawing-changed");
 });
 
 clearButton.addEventListener("click", () => {
-  lines.splice(0, lines.length);
-  lineStack.clear();
+  drawings.splice(0, drawings.length);
+  undoDrawingStack.clear();
   notify("drawing-changed");
 });
 
 undoButton.addEventListener("click", () => {
-  if (lines.length > 0) {
-    lineStack.push(lines.pop()!);
+  if (drawings.length > 0) {
+    undoDrawingStack.push(drawings.pop()!);
     notify("drawing-changed");
   }
 });
 
 redoButton.addEventListener("click", () => {
-  if (!lineStack.isEmpty()) {
-    lines.push(lineStack.pop()!);
+  if (!undoDrawingStack.isEmpty()) {
+    drawings.push(undoDrawingStack.pop()!);
     notify("drawing-changed");
   }
 });
 
 thinButton.addEventListener("click", () => {
   lineWidth = 1;
-  stickerEmoji = ".";
-  isSticker = false;
+  cursorDisplay = ".";
+  isStickerCursor = false;
 });
 
 normalButton.addEventListener("click", () => {
   lineWidth = 3;
-  stickerEmoji = "o";
-  isSticker = false;
+  cursorDisplay = "o";
+  isStickerCursor = false;
 });
 
 thickButton.addEventListener("click", () => {
   lineWidth = 6;
-  stickerEmoji = "O";
-  isSticker = false;
+  cursorDisplay = "O";
+  isStickerCursor = false;
 });
 
 canvas.addEventListener("mouseout", () => {
@@ -178,18 +177,18 @@ canvas.addEventListener("mouseenter", (e) => {
 });
 
 stickerControllerButton.addEventListener("click", () => {
-  stickerEmoji = "🎮";
-  isSticker = true;
+  cursorDisplay = "🎮";
+  isStickerCursor = true;
 });
 
 stickerAppleButton.addEventListener("click", () => {
-  stickerEmoji = "🍎";
-  isSticker = true;
+  cursorDisplay = "🍎";
+  isStickerCursor = true;
 });
 
 stickerPineappleButton.addEventListener("click", () => {
-  stickerEmoji = "🍍";
-  isSticker = true;
+  cursorDisplay = "🍍";
+  isStickerCursor = true;
 });
 
 function createDocuElement(
@@ -211,12 +210,7 @@ function notify(name: string) {
 
 function redraw(ctx: CanvasRenderingContext2D) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  lines.forEach((cmd) => cmd.display(ctx));
-  stickers.forEach((cmd) => cmd.display(ctx));
-
-  if (stickerCommand) {
-    stickerCommand.display(ctx);
-  }
+  drawings.forEach((cmd) => cmd.display(ctx));
 
   if (draggedSticker) {
     draggedSticker.display(ctx);
@@ -247,9 +241,11 @@ function createStack<drawingCommand>() {
 function createLineCommand(
   points: { x: number; y: number }[],
   width: number,
+  isSticker: boolean = false,
 ): DrawingCommand {
   return {
     points,
+    isSticker,
     display(ctx) {
       ctx.save();
       ctx.strokeStyle = "black";
@@ -269,9 +265,11 @@ function createLineCommand(
 function createCursorCommand(
   points: { x: number; y: number },
   cursorStyle: string = ".",
+  isSticker: boolean = false,
 ): DrawingCommand {
   return {
     points: [points],
+    isSticker,
     display(ctx) {
       ctx.font = "40px monospace";
       ctx.fillText(cursorStyle, points.x - 16, points.y + 2);
@@ -282,9 +280,11 @@ function createCursorCommand(
 function createStickerCommand(
   sticker: { x: number; y: number },
   cursorStyle: string,
+  isSticker: boolean = true,
 ): DrawingCommand {
   return {
     points: [sticker],
+    isSticker,
     display(ctx) {
       ctx.save();
       ctx.fillText(cursorStyle, sticker.x - 11, sticker.y + 2);
@@ -298,9 +298,11 @@ function moveStickerCommand(
   sticker: { x: number; y: number },
   toX: number,
   toY: number,
+  isSticker: boolean = true,
 ): DrawingCommand {
   return {
     points: [sticker],
+    isSticker,
     display() {
       sticker.x = toX;
       sticker.y = toY;
@@ -309,12 +311,12 @@ function moveStickerCommand(
 }
 
 function mouseOnSticker(mouseX: number, mouseY: number) {
-  for (const sticker of stickers) {
-    const dx = mouseX - sticker.points[0].x;
-    const dy = mouseY - sticker.points[0].y;
-    const d = Math.hypot(dx, dy);
-    if (d < 20) {
-      return sticker;
+  for (const drawing of drawings) {
+    if (drawing.isSticker) {
+      const dx = mouseX - drawing.points[0].x;
+      const dy = mouseY - drawing.points[0].y;
+      const d = Math.hypot(dx, dy);
+      if (d < 20) return drawing;
     }
   }
   return null;
