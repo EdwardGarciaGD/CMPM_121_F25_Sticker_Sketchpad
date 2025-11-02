@@ -10,9 +10,11 @@ interface DrawingCommand {
 const canvas = document.createElement("canvas");
 const ctx = canvas.getContext("2d")!;
 const drawings: DrawingCommand[] = [];
-const emojis: string[] = ["Create Sticker", "🎮", "🍎", "🍍"];
+const emojis: string[] = ["Create Sticker", "🎮", "🍎", "🍍", "Export Canvas"];
 const bus = new EventTarget();
 const undoDrawingStack = createStack<DrawingCommand>();
+const canvasHeight: number = 256;
+const canvasWidth: number = 256;
 
 let drawingCommand: DrawingCommand | null = null;
 let lineWidth: number = 3;
@@ -25,8 +27,8 @@ let isStickerCursor: boolean = false;
 
 document.body.appendChild(createDocuElement("h1", "Sketch On Me"));
 
-canvas.width = 256;
-canvas.height = 256;
+canvas.width = canvasWidth;
+canvas.height = canvasHeight;
 canvas.style.cursor = "none";
 canvas.id = "sketchCanvas";
 document.body.appendChild(canvas);
@@ -79,6 +81,13 @@ const createStickerButton = createDocuElement(
   "button",
 );
 document.body.appendChild(createStickerButton);
+
+const exportCanvasButton = createDocuElement(
+  "button",
+  emojis[4],
+  "button",
+);
+document.body.appendChild(exportCanvasButton);
 
 bus.addEventListener("drawing-changed", () => redraw(ctx));
 bus.addEventListener("cursor-changed", () => redraw(ctx));
@@ -190,9 +199,9 @@ stickerPineappleButton.addEventListener("click", () => {
   updateCursor(emojis[3], true);
 });
 
-createStickerButton.addEventListener("click", () => {
-  setUpCustomEmoji();
-});
+createStickerButton.addEventListener("click", setUpCustomEmoji);
+
+exportCanvasButton.addEventListener("click", exportCanvas);
 
 function createDocuElement(
   tag: string,
@@ -274,8 +283,8 @@ function createCursorCommand(
     points: [points],
     isSticker,
     display(ctx) {
-      ctx.font = "40px monospace";
-      ctx.fillText(cursorStyle, points.x - 16, points.y + 2);
+      ctx.font = "12px monospace";
+      ctx.fillText(cursorStyle, points.x - 4, points.y + 2);
     },
   };
 }
@@ -290,7 +299,7 @@ function createStickerCommand(
     isSticker,
     display(ctx) {
       ctx.save();
-      ctx.fillText(cursorStyle, sticker.x - 11, sticker.y + 2);
+      ctx.fillText(cursorStyle, sticker.x - 4, sticker.y + 2);
       ctx.lineWidth = 40;
       ctx.restore();
     },
@@ -347,4 +356,22 @@ function updateCursor(cursor: string, sticker: boolean, width: number = 2) {
   if (!sticker) lineWidth = width;
   cursorDisplay = cursor;
   isStickerCursor = sticker;
+}
+
+function exportCanvas() {
+  const tempCanvas = document.createElement("canvas");
+  tempCanvas.width = canvasWidth * 4;
+  tempCanvas.height = canvasHeight * 4;
+
+  const tempCTX = tempCanvas.getContext("2d")!;
+  tempCTX.scale(4, 4);
+
+  tempCTX.fillStyle = "#EAE0CE";
+  tempCTX.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+  drawings.forEach((cmd) => cmd.display(tempCTX));
+
+  const link = document.createElement("a");
+  link.href = tempCanvas.toDataURL("image/png");
+  link.download = "sketchpad.png";
+  link.click();
 }
