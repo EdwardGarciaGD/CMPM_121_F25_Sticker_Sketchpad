@@ -10,27 +10,38 @@ interface DrawingCommand {
 const canvas = document.createElement("canvas");
 const ctx = canvas.getContext("2d")!;
 const drawings: DrawingCommand[] = [];
-const emojis: string[] = ["Create Sticker", "🎮", "🍎", "🍍", "Export Canvas"];
+const emojis: string[] = [
+  "Create Sticker",
+  "🎮",
+  "🍎",
+  "🍍",
+  "Export Drawing",
+  ".🖊",
+  "•🖊",
+  "⏺🖊",
+];
 const bus = new EventTarget();
 const undoDrawingStack = createStack<DrawingCommand>();
 const canvasHeight: number = 256;
 const canvasWidth: number = 256;
 
 let drawingCommand: DrawingCommand | null = null;
-let lineWidth: number = 3;
-let cursorDisplay: string = "o";
-let stickerEmoji: string;
-let draggingSticker: DrawingCommand | null = null;
+let grabbedSticker: DrawingCommand | null = null;
 let cursorCommand: DrawingCommand | null = null;
-let draggedSticker: DrawingCommand | null = null;
+let draggingSticker: DrawingCommand | null = null;
+let lineWidth: number = 3;
+let cursorDisplay: string = emojis[6];
+let stickerEmoji: string;
 let isStickerCursor: boolean = false;
+let isConfirmed: boolean = false;
 
-document.body.appendChild(createDocuElement("h1", "Sketch On Me"));
+document.body.appendChild(
+  createDocuElement("h1", "Sketch On Me", "center-container"),
+);
 
 canvas.width = canvasWidth;
 canvas.height = canvasHeight;
 canvas.style.cursor = "none";
-canvas.id = "sketchCanvas";
 document.body.appendChild(canvas);
 
 const clearButton = createDocuElement("button", "Clear Drawing", "button");
@@ -42,13 +53,17 @@ document.body.appendChild(undoButton);
 const redoButton = createDocuElement("button", "Redo", "button");
 document.body.appendChild(redoButton);
 
-const thinButton = createDocuElement("button", "Thin", "line-width-button");
+const thinButton = createDocuElement("button", "Thin .", "line-width-button");
 document.body.appendChild(thinButton);
 
-const normalButton = createDocuElement("button", "Normal", "line-width-button");
+const normalButton = createDocuElement(
+  "button",
+  "Normal •",
+  "line-width-button",
+);
 document.body.appendChild(normalButton);
 
-const thickButton = createDocuElement("button", "Thick", "line-width-button");
+const thickButton = createDocuElement("button", "Thick ⏺", "line-width-button");
 document.body.appendChild(thickButton);
 
 const divider = document.createElement("div");
@@ -95,7 +110,7 @@ bus.addEventListener("cursor-changed", () => redraw(ctx));
 canvas.addEventListener("mousedown", (e) => {
   undoDrawingStack.clear();
   if (isStickerCursor) {
-    if (!draggingSticker) {
+    if (!grabbedSticker) {
       stickerEmoji = cursorDisplay;
       drawingCommand = createStickerCommand(
         { x: e.offsetX, y: e.offsetY },
@@ -116,38 +131,41 @@ canvas.addEventListener("mousemove", (e) => {
   cursorCommand = createCursorCommand(
     { x: e.offsetX, y: e.offsetY },
     cursorDisplay,
+    isStickerCursor,
   );
-  notify("cursor-changed");
 
   if (e.buttons == 1 && drawingCommand) {
     drawingCommand.points.push({ x: e.offsetX, y: e.offsetY });
-    notify("drawing-changed");
   }
-
-  if (isStickerCursor && !draggedSticker) {
-    draggingSticker = mouseOnSticker(e.offsetX, e.offsetY);
+  if (isStickerCursor && !draggingSticker) {
+    grabbedSticker = mouseOnSticker(e.offsetX, e.offsetY);
   }
-  if (draggingSticker && e.buttons == 1) {
-    draggedSticker = moveStickerCommand(
-      draggingSticker.points[0],
+  if (grabbedSticker && e.buttons == 1) {
+    draggingSticker = moveStickerCommand(
+      grabbedSticker.points[0],
       e.offsetX,
       e.offsetY,
     );
     notify("drawing-changed");
   }
+  notify("cursor-changed");
 });
 
 canvas.addEventListener("mouseup", () => {
   drawingCommand = null;
-  draggedSticker = null;
   draggingSticker = null;
+  grabbedSticker = null;
   notify("drawing-changed");
 });
 
 clearButton.addEventListener("click", () => {
-  drawings.splice(0, drawings.length);
-  undoDrawingStack.clear();
-  notify("drawing-changed");
+  isConfirmed = confirm("Clear canvas drawing?");
+  if (isConfirmed) {
+    drawings.splice(0, drawings.length);
+    undoDrawingStack.clear();
+    notify("drawing-changed");
+    isConfirmed = false;
+  }
 });
 
 undoButton.addEventListener("click", () => {
@@ -165,20 +183,20 @@ redoButton.addEventListener("click", () => {
 });
 
 thinButton.addEventListener("click", () => {
-  updateCursor(".", false, 1);
+  updateCursor(emojis[5], false, 1);
 });
 
 normalButton.addEventListener("click", () => {
-  updateCursor("o", false, 3);
+  updateCursor(emojis[6], false, 3);
 });
 
 thickButton.addEventListener("click", () => {
-  updateCursor("O", false, 6);
+  updateCursor(emojis[7], false, 6);
 });
 
 canvas.addEventListener("mouseout", () => {
   cursorCommand = null;
-  draggedSticker = null;
+  draggingSticker = null;
   notify("cursor-changed");
 });
 
@@ -224,10 +242,9 @@ function redraw(ctx: CanvasRenderingContext2D) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   drawings.forEach((cmd) => cmd.display(ctx));
 
-  if (draggedSticker) {
-    draggedSticker.display(ctx);
+  if (draggingSticker) {
+    draggingSticker.display(ctx);
   }
-
   if (cursorCommand) {
     cursorCommand.display(ctx);
   }
@@ -276,14 +293,14 @@ function createLineCommand(
 
 function createCursorCommand(
   points: { x: number; y: number },
-  cursorStyle: string = ".",
+  cursorStyle: string = emojis[6],
   isSticker: boolean = false,
 ): DrawingCommand {
   return {
     points: [points],
     isSticker,
     display(ctx) {
-      ctx.font = "12px monospace";
+      if (!isSticker) ctx.font = "18px monospace";
       ctx.fillText(cursorStyle, points.x - 4, points.y + 2);
     },
   };
@@ -328,7 +345,7 @@ function mouseOnSticker(mouseX: number, mouseY: number) {
       const dx = mouseX - drawing.points[0].x;
       const dy = mouseY - drawing.points[0].y;
       const d = Math.hypot(dx, dy);
-      if (d < 20) return drawing;
+      if (d < 8) return drawing;
     }
   }
   return null;
@@ -359,19 +376,22 @@ function updateCursor(cursor: string, sticker: boolean, width: number = 2) {
 }
 
 function exportCanvas() {
-  const tempCanvas = document.createElement("canvas");
-  tempCanvas.width = canvasWidth * 4;
-  tempCanvas.height = canvasHeight * 4;
+  isConfirmed = confirm("Download drawing?");
+  if (isConfirmed) {
+    const tempCanvas = document.createElement("canvas");
+    tempCanvas.width = canvasWidth * 4;
+    tempCanvas.height = canvasHeight * 4;
 
-  const tempCTX = tempCanvas.getContext("2d")!;
-  tempCTX.scale(4, 4);
+    const tempCTX = tempCanvas.getContext("2d")!;
+    tempCTX.scale(4, 4);
 
-  tempCTX.fillStyle = "#EAE0CE";
-  tempCTX.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
-  drawings.forEach((cmd) => cmd.display(tempCTX));
+    tempCTX.fillStyle = "#EAE0CE";
+    tempCTX.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+    drawings.forEach((cmd) => cmd.display(tempCTX));
 
-  const link = document.createElement("a");
-  link.href = tempCanvas.toDataURL("image/png");
-  link.download = "sketchpad.png";
-  link.click();
+    const link = document.createElement("a");
+    link.href = tempCanvas.toDataURL("image/png");
+    link.download = "sketchpad.png";
+    link.click();
+  }
 }

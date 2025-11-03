@@ -1,40 +1,91 @@
+body {
+  margin: 0;
+  height: 100%;
+  background: linear-gradient(
+    160deg,
+    #f58230,
+    #f58230,
+    #ff7e5f,
+    #2f35af,
+    #957ce1,
+    #a791e7
+  );
+  background-size: 400% 400%;
+  animation: gradient 15s ease infinite;
+  font-family: Arial, sans-serif;
+  color: #333;
+}
+
 canvas {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0 auto;
+  background-color: #eae4d8;
   border: 2px solid black;
   border-radius: 13px;
   box-shadow: 4px 4px 3px rgba(0, 0, 0, 0.4);
 }
 
+.center-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
 .button {
   display: flex;
-  font-weight: 500;
-  margin: 10px;
-  padding: 6px 10px;
+  font-weight: 700;
+  margin: 16px;
+  padding: 8px 14px;
   border-radius: 18px;
+  border: none;
+  background: linear-gradient(to bottom, #1476a0 0%, #1ac4df 100%);
+  box-shadow: 0 6px 0 #1476a0, 0 12px 20px rgba(0, 0, 0, 0.3);
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .button:hover {
-  box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 0 #1476a0, 0 14px 25px rgba(0, 0, 0, 0.3);
 }
 
 .button:active {
-  transform: translateX(4px);
+  transform: translateY(3px);
+  box-shadow: 0 4px 0 #1476a0, 0 6px 10px rgba(0, 0, 0, 0.2);
 }
 
 .line-width-button {
-  font-weight: 500;
-  margin: 16px 8px;
-  padding: 6px 10px;
-  border-radius: 18px;
+  font-weight: 700;
+  margin: 12px 16px;
+  padding: 12px 16px;
+  border-radius: 24px;
+  border: none;
+  background: linear-gradient(to bottom, #1476a0 0%, #1ac4df 100%);
+  box-shadow: 0 6px 0 #1476a0, 0 12px 20px rgba(0, 0, 0, 0.3);
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .line-width-button:hover {
-  box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 0 #1476a0, 0 14px 25px rgba(0, 0, 0, 0.3);
 }
 
 .line-width-button:active {
-  transform: translateX(4px);
+  transform: translateY(3px);
+  box-shadow: 0 4px 0 #1476a0, 0 6px 10px rgba(0, 0, 0, 0.2);
+}
+
+@keyframes gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
 }
