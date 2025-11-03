@@ -217,7 +217,9 @@ stickerPineappleButton.addEventListener("click", () => {
   updateCursor(emojis[3], true);
 });
 
-createStickerButton.addEventListener("click", setUpCustomEmoji);
+createStickerButton.addEventListener("click", () => {
+  setUpCustomEmoji();
+});
 
 exportCanvasButton.addEventListener("click", exportCanvas);
 
@@ -316,6 +318,7 @@ function createStickerCommand(
     isSticker,
     display(ctx) {
       ctx.save();
+      ctx.fillStyle = "black";
       ctx.fillText(cursorStyle, sticker.x - 4, sticker.y + 2);
       ctx.lineWidth = 40;
       ctx.restore();
@@ -352,7 +355,7 @@ function mouseOnSticker(mouseX: number, mouseY: number) {
 }
 
 function setUpCustomEmoji() {
-  const userInput = prompt("Enter Custom Sticker");
+  const userInput: string | null = prompt("Enter Custom Sticker");
 
   if (userInput) {
     emojis.push(userInput);
