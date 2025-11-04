@@ -30,6 +30,9 @@ let grabbedSticker: DrawingCommand | null = null;
 let cursorCommand: DrawingCommand | null = null;
 let draggingSticker: DrawingCommand | null = null;
 let lineWidth: number = 3;
+let redValue: string = "0";
+let greenValue: string = "0";
+let blueValue: string = "0";
 let cursorDisplay: string = emojis[6];
 let stickerEmoji: string;
 let isStickerCursor: boolean = false;
@@ -104,6 +107,19 @@ const exportCanvasButton = createDocuElement(
 );
 document.body.appendChild(exportCanvasButton);
 
+const colorPreviewSpan = document.createElement("div");
+colorPreviewSpan.classList.add("color-preview");
+document.body.appendChild(colorPreviewSpan);
+
+const redColorSlider = createSliderDocuElement();
+document.body.appendChild(redColorSlider);
+
+const greenColorSlider = createSliderDocuElement();
+document.body.appendChild(greenColorSlider);
+
+const blueColorSlider = createSliderDocuElement();
+document.body.appendChild(blueColorSlider);
+
 bus.addEventListener("drawing-changed", () => redraw(ctx));
 bus.addEventListener("cursor-changed", () => redraw(ctx));
 
@@ -121,6 +137,7 @@ canvas.addEventListener("mousedown", (e) => {
     drawingCommand = createLineCommand(
       [{ x: e.offsetX, y: e.offsetY }],
       lineWidth,
+      `rgb(${redValue},${greenValue},${blueValue})`,
     );
   }
   if (drawingCommand) drawings.push(drawingCommand);
@@ -223,6 +240,10 @@ createStickerButton.addEventListener("click", () => {
 
 exportCanvasButton.addEventListener("click", exportCanvas);
 
+redColorSlider.addEventListener("input", updateLineColor);
+greenColorSlider.addEventListener("input", updateLineColor);
+blueColorSlider.addEventListener("input", updateLineColor);
+
 function createDocuElement(
   tag: string,
   content: string,
@@ -233,6 +254,17 @@ function createDocuElement(
   if (classList !== "") {
     element.classList.add(classList);
   }
+  return element;
+}
+
+function createSliderDocuElement() {
+  const element = document.createElement("input");
+  element.type = "range";
+  element.min = "0";
+  element.max = "255";
+  element.value = "0";
+  element.classList.add("slider");
+
   return element;
 }
 
@@ -272,6 +304,7 @@ function createStack<drawingCommand>() {
 function createLineCommand(
   points: { x: number; y: number }[],
   width: number,
+  strokeColor: string = "black",
   isSticker: boolean = false,
 ): DrawingCommand {
   return {
@@ -279,7 +312,7 @@ function createLineCommand(
     isSticker,
     display(ctx) {
       ctx.save();
-      ctx.strokeStyle = "black";
+      ctx.strokeStyle = strokeColor;
       ctx.lineWidth = width;
       ctx.beginPath();
       const { x, y } = points[0];
@@ -397,4 +430,13 @@ function exportCanvas() {
     link.download = "sketchpad.png";
     link.click();
   }
+}
+
+function updateLineColor() {
+  redValue = redColorSlider.value;
+  greenValue = greenColorSlider.value;
+  blueValue = blueColorSlider.value;
+
+  colorPreviewSpan.style.backgroundColor =
+    `rgb(${redValue},${greenValue},${blueValue})`;
 }

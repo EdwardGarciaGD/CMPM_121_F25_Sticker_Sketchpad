@@ -78,6 +78,21 @@ canvas {
   box-shadow: 0 4px 0 #1476a0, 0 6px 10px rgba(0, 0, 0, 0.2);
 }
 
+.slider {
+  margin: 60px 30px;
+  flex-wrap: wrap;
+  accent-color: #f58230;
+}
+
+.color-preview {
+  background-color: #333;
+  width: 100px;
+  height: 100px;
+  border: 2px solid #333;
+  border-radius: 8px;
+  margin: 30px 230px;
+}
+
 @keyframes gradient {
   0% {
     background-position: 0% 50%;
